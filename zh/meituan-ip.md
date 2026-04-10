@@ -1,8 +1,10 @@
-# 美团 IP 精准定位 API
+# 美团 IP 定位 API
 
 来源：[forum.naixi.net/thread-3705-1-1.html](https://forum.naixi.net/thread-3705-1-1.html)
 
-美团移动端内部接口，无需鉴权。通过美团外卖业务积累的 IP-GPS 关联数据，实现远超常规 IP 库的定位精度（可达 50 米级别）。
+美团移动端内部接口，无需鉴权。通过美团外卖业务积累的 IP-GPS 关联数据，返回 IP 的大致地理位置。
+
+> **2026 年实测更新**：2025 年论坛帖子中提到的「50 米级精度」已不复存在。目前公开接口返回的经纬度被服务端强制截断至**小数点后 1 位**（约 11 km 网格），全球范围内均是如此。美团内部的精确 IP-GPS 关联数据仍然存在，只是对外接口被降级了。
 
 ---
 
@@ -32,9 +34,30 @@ GET https://apimobile.meituan.com/locate/v2/ip/loc?rgeo=true&ip={IP地址}
 ### 用法示例
 
 ```bash
-# 查询指定 IP 的定位
 curl "https://apimobile.meituan.com/locate/v2/ip/loc?rgeo=true&ip=1.2.3.4"
 ```
+
+### 返回示例
+
+```json
+{
+  "data": {
+    "lng": 116.6,
+    "lat": 35.4,
+    "rgeo": {
+      "country": "中国",
+      "province": "山东省",
+      "city": "济宁市",
+      "district": "任城区",
+      "fromwhere": "mars-mt"
+    }
+  }
+}
+```
+
+经纬度仅保留 1 位小数，对应约 11 km × 11 km 的网格。`fromwhere: mars-mt` 表示使用的是粗粒度坐标源。
+
+未被美团收录的 IP（如海外机房段）返回的 `rgeo` 可能为空对象。
 
 ---
 
@@ -78,7 +101,6 @@ echo "=== 第一步：IP 定位 ==="
 RESULT=$(curl -s "https://apimobile.meituan.com/locate/v2/ip/loc?rgeo=true&ip=${IP}")
 echo "$RESULT" | jq .
 
-# 提取经纬度
 LAT=$(echo "$RESULT" | jq -r '.data.lat // empty')
 LNG=$(echo "$RESULT" | jq -r '.data.lng // empty')
 
@@ -95,7 +117,8 @@ fi
 
 ## 注意事项
 
-- 定位精度取决于该 IP 是否有美团用户使用记录，无记录的 IP 精度较低
-- 不支持 IPv6
-- 如果你通过代理使用过美团 APP，代理 IP 会与你的真实地址绑定
-- **隐私建议**：使用代理时避免访问美团等外卖/打车平台，防止 IP 与真实地址关联
+- **精度上限**：经纬度被服务端截断至 1 位小数（约 11 km），即使传 `precise=true`、`accurate=1` 等参数也无效；`v1`、`v3` 版本的路径返回 404；POST 请求返回空
+- **数据范围**：国内 IP 基本都能定位到地级市/区县级别；海外 IP 能定位到国家/城市；完全陌生的 IP 段返回空 `rgeo`
+- **不支持 IPv6**
+- **代理关联风险依然存在**：如果你通过某个代理 IP 使用过美团 APP，该 IP 在美团内部仍被打上你的真实地址标签，只是公开接口看不到具体坐标
+- **隐私建议**：使用代理/VPS 时避免访问美团、大众点评、饿了么等外卖/打车/本地生活平台，防止 IP 被持续打标
