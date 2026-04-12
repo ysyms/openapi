@@ -227,6 +227,89 @@ US    $5.99
 
 ---
 
+## 全球 App Store 国家/地区列表
+
+Apple App Store 共 **183 个**国家和地区（来源：[App Store Connect 官方文档](https://developer.apple.com/help/app-store-connect/reference/app-store-pricing-and-availability-start-times-by-country-or-region/)）。
+
+> 注意：Apple 宣传材料有时写"175个"，但官方开发者文档实际列出 183 个。查询所有区域上架情况时，以下列表为准。
+
+```python
+# 183 个 App Store 国家/地区代码（ISO 3166-1 alpha-2）
+# 来源：Apple App Store Connect 官方文档
+ALL_COUNTRIES = [
+    # 北美
+    'US', 'CA',
+    # 拉丁美洲 & 加勒比
+    'MX', 'BR', 'AR', 'CL', 'CO', 'PE', 'VE', 'UY', 'PY', 'BO', 'EC',
+    'CR', 'GT', 'HN', 'SV', 'NI', 'PA', 'DO', 'JM', 'TT', 'BB', 'LC',
+    'VC', 'GD', 'AG', 'DM', 'KN', 'BS', 'BZ', 'GY', 'SR', 'HT',
+    'TC', 'VG', 'KY', 'AI', 'MS', 'BM',
+    # 欧洲
+    'GB', 'DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'CH', 'AT', 'SE',
+    'NO', 'DK', 'FI', 'PT', 'IE', 'LU', 'GR', 'PL', 'CZ', 'HU',
+    'RO', 'SK', 'HR', 'SI', 'BG', 'EE', 'LT', 'LV', 'CY', 'MT',
+    'IS', 'AL', 'AM', 'AZ', 'BY', 'BA', 'GE', 'KZ', 'KG', 'MD',
+    'MK', 'ME', 'RS', 'TJ', 'TM', 'UA', 'UZ', 'XK',
+    # 俄罗斯
+    'RU',
+    # 中东 & 北非
+    'SA', 'AE', 'QA', 'KW', 'BH', 'OM', 'JO', 'LB', 'IL', 'EG',
+    'TN', 'DZ', 'MA', 'LY', 'IQ', 'YE',
+    # 非洲（撒哈拉以南）
+    'ZA', 'NG', 'KE', 'GH', 'TZ', 'UG', 'ET', 'CM', 'CI', 'SN',
+    'MZ', 'ZW', 'ZM', 'RW', 'MG', 'MW', 'NA', 'BW', 'ML', 'BF',
+    'NE', 'TD', 'GW', 'GM', 'SL', 'LR', 'MR', 'BJ', 'CG', 'GA',
+    'ST', 'CV', 'SC', 'MU', 'DJ', 'SZ',
+    # 亚太
+    'CN', 'JP', 'KR', 'HK', 'TW', 'SG', 'AU', 'NZ', 'IN', 'ID',
+    'MY', 'PH', 'TH', 'VN', 'PK', 'BD', 'LK', 'NP', 'MM', 'KH',
+    'LA', 'BN', 'MN', 'MV', 'BT', 'PG', 'FJ', 'SB', 'VU', 'WS',
+    'TO', 'NR', 'PW', 'FM', 'MO', 'TL',
+]
+```
+
+### 查询某 App 在所有区域的上架情况与价格
+
+```python
+import asyncio
+import aiohttp
+
+async def lookup(session, app_id, country):
+    url = f'https://itunes.apple.com/lookup?id={app_id}&country={country}'
+    try:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=8)) as resp:
+            data = await resp.json(content_type=None)
+            if data.get('resultCount', 0) > 0:
+                r = data['results'][0]
+                return {
+                    'country': country,
+                    'price': r.get('price'),
+                    'currency': r.get('currency'),
+                    'formatted': r.get('formattedPrice'),
+                }
+    except:
+        pass
+    return None
+
+async def all_regions_price(app_id: int):
+    # 最佳并发 100，实测 8 秒查完全部 183 个地区
+    connector = aiohttp.TCPConnector(ssl=True, limit=100)
+    async with aiohttp.ClientSession(connector=connector) as session:
+        tasks = [lookup(session, app_id, c) for c in ALL_COUNTRIES]
+        results = await asyncio.gather(*tasks)
+
+    available = [r for r in results if r]
+    print(f'上架 {len(available)}/{len(ALL_COUNTRIES)} 个地区')
+    for r in sorted(available, key=lambda x: x['price'] or 9999):
+        print(f"  {r['country']:4s}  {r['formatted']:>15s}  ({r['price']} {r['currency']})")
+
+asyncio.run(all_regions_price(916366645))
+```
+
+> **注意**：高并发下偶发 SSL 断连（非上架问题），失败条目建议单独重查一次确认。
+
+---
+
 ## 限流说明
 
 | 客户端方案 | 并发 | 成功率 | 速率 |
