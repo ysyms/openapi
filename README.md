@@ -8,3 +8,4 @@
 - [美团 IP 定位 API](zh/meituan-ip.md) — 基于美团数据的高精度 IP 地理定位
 - [美团 HTTPDNS API](zh/meituan-httpdns.md) — 免鉴权 IP 回显 + 美团 CDN 节点实时查询
 - [ping0.cc IP 查询与网络工具](zh/ping0-check.md) — IP 查询、反查域名、网络工具
+- [Apple App Store API](zh/apple-appstore.md) — 应用搜索、Top 榜单、多区价格 Lookup，100 并发 ~400 req/s
